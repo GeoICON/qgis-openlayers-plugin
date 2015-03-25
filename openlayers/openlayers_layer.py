@@ -35,7 +35,8 @@ debuglevel = 4  # 0 (none) - 4 (all)
 def debug(msg, verbosity=1):
     if debuglevel >= verbosity:
         try:
-            qDebug(msg)
+            #qDebug(msg)
+            print(msg)
         except:
             pass
 

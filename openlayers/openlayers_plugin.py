@@ -35,6 +35,8 @@ from weblayers.bing_maps import OlBingRoadLayer, OlBingAerialLayer, OlBingAerial
 from weblayers.apple_maps import OlAppleiPhotoMapLayer
 from weblayers.osm_stamen import OlOSMStamenTonerLayer, OlOSMStamenWatercolorLayer, OlOSMStamenTerrainLayer
 from weblayers.map_quest import OlMapQuestOSMLayer, OlMapQuestOpenAerialLayer
+from weblayers.onemap_maps import OlOneMapStreetsLayer
+
 import os.path
 
 
@@ -93,12 +95,14 @@ class OpenlayersPlugin:
 
         self._olLayerTypeRegistry.register(OlOSMStamenTonerLayer())
         self._olLayerTypeRegistry.register(OlOSMStamenWatercolorLayer())
-        self._olLayerTypeRegistry.register(OlOSMStamenTerrainLayer())
+        #self._olLayerTypeRegistry.register(OlOSMStamenTerrainLayer())
 
         self._olLayerTypeRegistry.register(OlMapQuestOSMLayer())
         self._olLayerTypeRegistry.register(OlMapQuestOpenAerialLayer())
 
-        self._olLayerTypeRegistry.register(OlAppleiPhotoMapLayer())
+        #self._olLayerTypeRegistry.register(OlAppleiPhotoMapLayer())
+
+        #self._olLayerTypeRegistry.register(OlOneMapStreetsLayer())
 
         for group in self._olLayerTypeRegistry.groups():
             groupMenu = group.menu()
@@ -162,6 +166,25 @@ class OpenlayersPlugin:
             crs = mapCanvas.mapRenderer().destinationSrs()
         return crs
 
+    def __getDefaultExtent(self, targetCrs):
+        print "targetCrs: ", targetCrs.toWkt()
+        crs_4326 = QgsCoordinateReferenceSystem()
+        proj_def = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+        ok = crs_4326.createFromProj4(proj_def)
+        print "ok: ", ok
+        if not ok:
+            return None
+        coordTrans = QgsCoordinateTransform(crs_4326, targetCrs)
+        print "coordTrans: ", coordTrans
+        worldExtent = QgsRectangle(103.5815, 1.1000, 104.1643, 1.5200)
+        print "worldExtent is empty", worldExtent.isEmpty()
+        extent = coordTrans.transform(worldExtent, QgsCoordinateTransform.ForwardTransform)
+        print "extent: ", extent.asWktPolygon()
+        print "extent is empty: ", extent.isEmpty()
+        if extent.isEmpty():
+            return None
+        return extent
+
     def setMapCrs(self, coordRefSys):
         mapCanvas = self.iface.mapCanvas()
         # On the fly
@@ -173,7 +196,19 @@ class OpenlayersPlugin:
         if canvasCrs != coordRefSys:
             coordTrans = QgsCoordinateTransform(canvasCrs, coordRefSys)
             extMap = mapCanvas.extent()
-            extMap = coordTrans.transform(extMap, QgsCoordinateTransform.ForwardTransform)
+
+            fullExtent = mapCanvas.fullExtent()
+            print "fullExtent: ", fullExtent.asWktPolygon()
+
+            #extMap = coordTrans.transform(extMap, QgsCoordinateTransform.ForwardTransform)
+            # Serge Markin: trying to solve an issue
+            if not extMap.isEmpty():
+                try:
+                    extMap = coordTrans.transform(extMap, QgsCoordinateTransform.ForwardTransform)
+                except:
+                    extMap = None
+            # ----------------------
+
             if QGis.QGIS_VERSION_INT >= 20300:
                 mapCanvas.setDestinationCrs(coordRefSys)
             elif QGis.QGIS_VERSION_INT >= 10900:
@@ -182,4 +217,14 @@ class OpenlayersPlugin:
                 mapCanvas.mapRenderer().setDestinationSrs(coordRefSys)
             mapCanvas.freeze(False)
             mapCanvas.setMapUnits(coordRefSys.mapUnits())
-            mapCanvas.setExtent(extMap)
+
+            #mapCanvas.setExtent(extMap)
+            # Serge Markin: Trying to fix
+            if not (extMap is None or extMap.isEmpty()):
+                mapCanvas.setExtent(extMap)
+            else:
+                mapCanvas.zoomWithCenter(115555.00, 151123.00, True)
+                # defaultExtent = self.__getDefaultExtent(coordRefSys)
+                # print "coordRefSys: ", coordRefSys.toWkt()
+                # print "defaultExtent: ", defaultExtent.asWktPolygon()
+                # mapCanvas.setExtent(defaultExtent)

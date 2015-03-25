@@ -133,3 +133,30 @@ class WebLayer3857(WebLayer):
             if not isOk:
                 return None
         return coordRefSys
+
+
+class WebLayer3414(WebLayer):
+
+    epsgList = [3414]
+
+    fullExtent = [0.0, 10000.0, 65000.0, 55000.0]
+
+    MAX_ZOOM_LEVEL = 8
+    SCALE_ON_MAX_ZOOM = 1128
+
+    def coordRefSys(self, mapCoordSys):
+        epsg = self.epsgList[0]
+        coordRefSys = QgsCoordinateReferenceSystem()
+        if QGis.QGIS_VERSION_INT >= 10900:
+            idEpsgRS = "EPSG:%d" % epsg
+            createCrs = coordRefSys.createFromOgcWmsCrs(idEpsgRS)
+        else:
+            idEpsgRS = epsg
+            createCrs = coordRefSys.createFromEpsg(idEpsgRS)
+        if not createCrs:
+            proj_def = "+proj=tmerc +lat_0=1.366666666666667 +lon_0=103.8333333333333 +k=1 "
+            proj_def += "+x_0=28001.642 +y_0=38744.572 +ellps=WGS84 +units=m +no_defs"
+            isOk = coordRefSys.createFromProj4(proj_def)
+            if not isOk:
+                return None
+        return coordRefSys
